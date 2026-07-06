@@ -43,6 +43,8 @@ select.proj{min-width:150px}
 .btn.danger{background:transparent;border-color:var(--danger);color:var(--danger)}
 .btn.danger:hover{background:var(--danger);color:#000}
 .btn.sm{padding:6px 10px;font-size:8px}
+.btn.confirm{background:transparent;border-color:#4aff9a;color:#4aff9a}
+.btn.confirm:hover{background:#4aff9a;color:#000}
 .panel{border:3px solid var(--line);background:var(--panel);padding:16px;margin-bottom:14px}
 .panel h2{font-size:11px;margin:0 0 14px;color:var(--blue)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -69,21 +71,29 @@ select.proj{min-width:150px}
 .stat .num{font-size:16px;color:var(--blue);margin-top:8px}
 .stat .lab{font-size:8px;color:var(--gray)}
 .ai-box{border:2px solid var(--blue);background:var(--blue-soft);padding:14px;line-height:2}
-.ai-box .head{color:var(--blue);margin-bottom:10px}
+.ai-box .head{color:var(--blue);margin-bottom:10px;font-size:9px}
 .advice{border-left:3px solid var(--blue);padding-left:10px;margin:8px 0;color:var(--gray)}
-.settle{border:2px solid var(--danger);background:#1a0f12;padding:14px;margin-bottom:14px}
-.settle .head{color:var(--danger);margin-bottom:10px}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.settle-banner{border:2px solid var(--danger);background:#1a0f12;padding:14px;margin-bottom:14px}
+.settle-banner .head{color:var(--danger);margin-bottom:8px;font-size:9px}
+.settle-detail{border:2px solid var(--line);background:var(--panel2);padding:12px;margin-bottom:8px}
+.settle-detail .who{font-size:9px;margin-bottom:8px}
+.settle-detail .who span.owe{color:var(--danger)}
+.settle-detail .who span.recv{color:var(--blue)}
+.settle-confirmed{border:2px solid #4aff9a;background:#0a1f12;padding:12px;margin-bottom:8px;font-size:8px;color:#4aff9a}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow:auto}
 .modal{border:3px solid var(--blue);background:var(--panel);padding:20px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
+.modal.danger-modal{border-color:var(--danger)}
 .empty{color:var(--gray-dim);text-align:center;padding:30px;font-size:8px}
 canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:100%!important}
 .small{font-size:8px;color:var(--gray)}
 .rate-tag{font-size:7px;color:var(--gray-dim);margin-top:4px}
 .editing{border-color:var(--danger)!important}
+.settle-month-label{color:var(--danger);font-size:9px}
 </style>
 </head>
 <body>
 <div class="app">
+
   <header>
     <div class="logo">give a dime<span class="tag">▸ PIXEL LEDGER v1</span></div>
     <div class="proj-bar">
@@ -93,11 +103,13 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     </div>
   </header>
 
-  <div class="settle hidden" id="settleBanner">
-    <div class="head">▸ MONTHLY SETTLEMENT</div>
-    <div class="small" id="settleText"></div>
+  <!-- SETTLEMENT BANNER (shown on 1st of month) -->
+  <div class="settle-banner hidden" id="settleBanner">
+    <div class="head">▸ MONTHLY SETTLEMENT REQUIRED</div>
+    <div class="small" id="settleMonthLine"></div>
+    <div id="settleItems"></div>
     <div class="row" style="margin-top:10px">
-      <button class="btn sm" id="doSettleBtn">VIEW BALANCES</button>
+      <button class="btn sm confirm" id="doSettleBtn">✓ MARK ALL SETTLED</button>
       <button class="btn ghost sm" id="dismissSettleBtn">LATER</button>
     </div>
   </div>
@@ -109,6 +121,7 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     <button class="tab" data-tab="ai">AI ADVISOR</button>
   </div>
 
+  <!-- ADD TAB -->
   <section id="tab-add">
     <div class="panel" id="addPanel">
       <h2 id="addTitle">▸ NEW SPENDING</h2>
@@ -121,7 +134,10 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
       <div class="cat-grid" id="catGrid"></div>
       <div class="row" style="margin-top:14px">
         <div class="field"><label>FREQUENCY</label>
-          <select id="freqIn"><option value="once">ONE-TIME</option><option value="monthly">MONTHLY (recurring)</option></select>
+          <select id="freqIn">
+            <option value="once">ONE-TIME</option>
+            <option value="monthly">MONTHLY (recurring)</option>
+          </select>
         </div>
         <div class="field hidden" id="expiryField"><label>EXPIRY (optional)</label><input id="expiryIn" type="date"></div>
       </div>
@@ -148,14 +164,19 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     </div>
   </section>
 
+  <!-- LEDGER TAB -->
   <section id="tab-list" class="hidden">
     <div class="panel">
       <h2>▸ LEDGER · <span id="listMonthLabel"></span></h2>
-      <div class="row"><input type="month" id="monthFilter" style="flex:1"><button class="btn ghost sm" id="thisMonthBtn">THIS MONTH</button></div>
+      <div class="row">
+        <input type="month" id="monthFilter" style="flex:1">
+        <button class="btn ghost sm" id="thisMonthBtn">THIS MONTH</button>
+      </div>
       <div id="expList"></div>
     </div>
   </section>
 
+  <!-- SUMMARY TAB -->
   <section id="tab-summary" class="hidden">
     <div class="grid" style="margin-bottom:14px">
       <div class="stat"><div class="lab">MONTH TOTAL (HKD)</div><div class="num" id="statTotal">—</div></div>
@@ -164,14 +185,24 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     </div>
     <div class="panel"><h2>▸ 6-MONTH TREND (HKD)</h2><canvas id="trendChart" height="130"></canvas></div>
     <div class="panel"><h2>▸ CATEGORY BREAKDOWN</h2><canvas id="catChart" height="130"></canvas></div>
-    <div class="panel"><h2>▸ WHO OWES WHOM</h2><div id="balanceList"></div></div>
+    <div class="panel">
+      <h2>▸ WHO OWES WHOM · <span id="balanceMonthLabel" class="settle-month-label"></span></h2>
+      <div id="balanceList"></div>
+    </div>
+    <div class="panel">
+      <h2>▸ SETTLEMENT HISTORY</h2>
+      <div id="settleHistory"></div>
+    </div>
   </section>
 
+  <!-- AI TAB -->
   <section id="tab-ai" class="hidden">
     <div class="panel"><h2>▸ AI SPENDING ADVISOR</h2><div class="ai-box" id="aiBox"></div></div>
   </section>
+
 </div>
 
+<!-- PROJECT MODAL -->
 <div class="modal-bg hidden" id="projModal">
   <div class="modal">
     <h2 style="color:var(--blue);font-size:12px" id="projModalTitle">NEW PROJECT</h2>
@@ -199,9 +230,11 @@ const CURRENCIES=["HKD","USD","EUR","GBP","JPY","CNY","TWD","KRW","SGD","AUD","T
 const IDB={
   db:null,
   open(){return new Promise((res,rej)=>{
-    const r=indexedDB.open("giveadime",1);
-    r.onupgradeneeded=e=>{const d=e.target.result;
-      if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv");};
+    const r=indexedDB.open("giveadime",2);
+    r.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv");
+    };
     r.onsuccess=e=>{this.db=e.target.result;res();};
     r.onerror=e=>rej(e);
   });},
@@ -216,7 +249,7 @@ const IDB={
 };
 
 /* ===== STATE ===== */
-let STATE={projects:[],currentId:null,dismissedSettle:null};
+let STATE={projects:[],currentId:null,dismissedSettle:null,settlements:{}};
 async function saveState(){await IDB.set("state",STATE);}
 function project(){return STATE.projects.find(p=>p.id===STATE.currentId);}
 
@@ -239,7 +272,7 @@ let selCat=CATEGORIES[0];
 let sharers=[];
 let editingExpId=null;
 
-/* ===== BUILD CATEGORIES ===== */
+/* ===== CATEGORIES ===== */
 function buildCats(){
   const g=document.getElementById("catGrid");g.innerHTML="";
   CATEGORIES.forEach(c=>{
@@ -251,7 +284,7 @@ function buildCats(){
   });
 }
 
-/* ===== BUILD PAYER ===== */
+/* ===== PAYER ===== */
 function buildPayer(){
   const p=project();if(!p)return;
   const s=document.getElementById("payerIn");const cur=s.value;s.innerHTML="";
@@ -259,7 +292,7 @@ function buildPayer(){
   if(p.people.includes(cur))s.value=cur;
 }
 
-/* ===== BUILD SHARE BUTTONS ===== */
+/* ===== SHARE BUTTONS ===== */
 function buildShareBtns(){
   const p=project();if(!p)return;
   const box=document.getElementById("shareBtns");box.innerHTML="";
@@ -278,14 +311,14 @@ function buildShareBtns(){
   });
 }
 
-/* ===== BUILD SPLIT ROWS ===== */
+/* ===== SPLIT ROWS ===== */
 function buildSplit(){
   const mode=document.getElementById("splitModeIn").value;
   const box=document.getElementById("splitRows");
   const hint=document.getElementById("splitHint");
   box.innerHTML="";
   if(mode==="equal"){
-    hint.textContent="→ Split evenly among "+sharers.length+" selected: "+sharers.join(", ");
+    hint.textContent="→ Split evenly among "+sharers.length+": "+sharers.join(", ");
     return;
   }
   sharers.forEach(n=>{
@@ -298,8 +331,8 @@ function buildSplit(){
     row.appendChild(inp);box.appendChild(row);
   });
   hint.textContent=mode==="percent"
-    ?"→ Percentages (selected people) should total 100%."
-    :"→ Amounts (selected people) should total the spending.";
+    ?"→ Percentages must total 100%."
+    :"→ Amounts must total the spending.";
 }
 
 /* ===== RESET FORM ===== */
@@ -319,10 +352,9 @@ function resetAddForm(){
   selCat=CATEGORIES[0];
 }
 
-/* ===== LOAD ITEM FOR EDIT ===== */
+/* ===== LOAD FOR EDIT ===== */
 function loadForEdit(e){
-  editingExpId=e.id;
-  selCat=e.cat;
+  editingExpId=e.id;selCat=e.cat;
   document.getElementById("descIn").value=e.desc;
   document.getElementById("amtIn").value=e.amount;
   document.getElementById("dateIn").value=e.date;
@@ -345,14 +377,11 @@ function loadForEdit(e){
         if(e.splitMode==="percent"){
           const tot=Object.values(e.split).reduce((a,b)=>a+b,0)||1;
           inp.value=((e.split[n]/tot)*100).toFixed(1);
-        }else{
-          inp.value=e.split[n];
-        }
+        }else inp.value=e.split[n];
       });
     },0);
   }
-  switchTab("add");
-  window.scrollTo(0,0);
+  switchTab("add");window.scrollTo(0,0);
 }
 
 /* ===== SAVE / UPDATE EXPENSE ===== */
@@ -370,8 +399,7 @@ async function saveExpense(){
   if(!sharers.length){alert("Select at least one person to share the cost");return;}
   let split={};
   if(mode==="equal"){
-    const share=amt/sharers.length;
-    sharers.forEach(n=>split[n]=share);
+    const share=amt/sharers.length;sharers.forEach(n=>split[n]=share);
   }else{
     let total=0;
     document.querySelectorAll(".splitInp").forEach(i=>{
@@ -385,8 +413,7 @@ async function saveExpense(){
     }
   }
 
-  const btn=document.getElementById("saveExpBtn");
-  const origLabel=btn.textContent;
+  const btn=document.getElementById("saveExpBtn");const origLabel=btn.textContent;
   btn.textContent="FETCHING RATE...";btn.disabled=true;
   const rr=await fetchRateToHKD(p.currency);
   btn.textContent=origLabel;btn.disabled=false;
@@ -405,8 +432,7 @@ async function saveExpense(){
     p.expenses.push(exp);
   }
   await saveState();
-  resetAddForm();
-  buildCats();buildShareBtns();buildSplit();
+  resetAddForm();buildCats();buildShareBtns();buildSplit();
   alert((wasEditing?"Updated":"Saved")+" ✓  (1 "+p.currency+" = "+rr.rate.toFixed(4)+" HKD"+(rr.live?", live":", manual")+")");
   render();
 }
@@ -424,6 +450,100 @@ function monthExpenses(ym){
   return p.expenses.filter(e=>activeInMonth(e,ym));
 }
 
+/* ===== BALANCE CALCULATION ===== */
+function calcBalances(ym){
+  const p=project();if(!p)return{};
+  const bal={};p.people.forEach(n=>bal[n]=0);
+  monthExpenses(ym).forEach(e=>{
+    if(bal[e.payer]!==undefined)bal[e.payer]+=e.amountHKD;
+    Object.entries(e.split).forEach(([n,v])=>{
+      if(bal[n]!==undefined)bal[n]-=v*(e.currency==="HKD"?1:e.rateToHKD);
+    });
+  });
+  return bal;
+}
+
+/* Build minimal debt transactions from balances */
+function buildTransactions(bal){
+  const debt=[],cred=[];
+  Object.entries(bal).forEach(([n,v])=>{
+    if(v<-0.5)debt.push({name:n,amt:-v});
+    else if(v>0.5)cred.push({name:n,amt:v});
+  });
+  debt.sort((a,b)=>b.amt-a.amt);cred.sort((a,b)=>b.amt-a.amt);
+  const txns=[];
+  let i=0,j=0;
+  while(i<debt.length&&j<cred.length){
+    const pay=Math.min(debt[i].amt,cred[j].amt);
+    txns.push({from:debt[i].name,to:cred[j].name,amt:pay});
+    debt[i].amt-=pay;cred[j].amt-=pay;
+    if(debt[i].amt<0.5)i++;if(cred[j].amt<0.5)j++;
+  }
+  return txns;
+}
+
+/* ===== SETTLEMENT: show banner on 1st ===== */
+function checkSettlement(){
+  const today=new Date();
+  const ym=today.toISOString().slice(0,7);
+  const banner=document.getElementById("settleBanner");
+  const p=project();
+  if(!p||today.getDate()!==1){banner.classList.add("hidden");return;}
+  // previous month
+  const prevDate=new Date(today.getFullYear(),today.getMonth()-1,1);
+  const prevYm=prevDate.toISOString().slice(0,7);
+  const settleKey=p.id+"_"+prevYm;
+  // already settled?
+  if(STATE.settlements&&STATE.settlements[settleKey]){banner.classList.add("hidden");return;}
+  // dismissed this month?
+  if(STATE.dismissedSettle===ym){banner.classList.add("hidden");return;}
+
+  const bal=calcBalances(prevYm);
+  const txns=buildTransactions(bal);
+
+  document.getElementById("settleMonthLine").textContent=
+    "Settle recurring charges for "+prevYm+" · "+p.name;
+
+  const box=document.getElementById("settleItems");box.innerHTML="";
+
+  if(!txns.length){
+    box.innerHTML='<div class="settle-confirmed">✓ All balanced — nothing to settle.</div>';
+    document.getElementById("doSettleBtn").textContent="✓ CONFIRM SETTLED";
+  }else{
+    txns.forEach(t=>{
+      const d=document.createElement("div");d.className="settle-detail";
+      d.innerHTML='<div class="who">'+
+        '<span class="owe">'+t.from+'</span> owes '+
+        '<span class="recv">'+t.to+'</span> '+
+        '<b style="color:var(--white)">HK$'+t.amt.toFixed(2)+'</b></div>';
+      box.appendChild(d);
+    });
+    document.getElementById("doSettleBtn").textContent="✓ MARK ALL SETTLED";
+  }
+  banner.classList.remove("hidden");
+}
+
+/* ===== MARK SETTLED ===== */
+async function markSettled(){
+  const today=new Date();
+  const prevDate=new Date(today.getFullYear(),today.getMonth()-1,1);
+  const prevYm=prevDate.toISOString().slice(0,7);
+  const p=project();if(!p)return;
+  const settleKey=p.id+"_"+prevYm;
+  const bal=calcBalances(prevYm);
+  const txns=buildTransactions(bal);
+  if(!STATE.settlements)STATE.settlements={};
+  STATE.settlements[settleKey]={
+    month:prevYm,project:p.name,settledOn:new Date().toISOString().slice(0,10),
+    transactions:txns
+  };
+  await saveState();
+  document.getElementById("settleBanner").classList.add("hidden");
+  // show confirmation briefly then re-render summary
+  alert("✓ Settlement for "+prevYm+" recorded.");
+  renderSummary();
+}
+
 /* ===== RENDER LEDGER ===== */
 function renderList(){
   const ym=document.getElementById("monthFilter").value||new Date().toISOString().slice(0,7);
@@ -439,13 +559,15 @@ function renderList(){
     const hkdLine=p.currency!=="HKD"
       ?'<span class="hkd">≈ HK$'+e.amountHKD.toFixed(2)+'</span>':"";
     const rateLine=p.currency!=="HKD"
-      ?'<div class="rate-tag">rate '+e.rateToHKD.toFixed(4)+' · '+(e.rateLive?'live '+e.rateDate:'manual')+'</div>':"";
+      ?'<div class="rate-tag">rate '+e.rateToHKD.toFixed(4)+
+        ' · '+(e.rateLive?'live '+e.rateDate:'manual')+'</div>':"";
     const shareList=Object.keys(e.split).join(", ");
     div.innerHTML=
       '<div>'+
         '<div>'+recBadge+'<span class="badge">'+e.cat.toUpperCase()+'</span></div>'+
         '<div style="margin-top:6px">'+e.desc+'</div>'+
-        '<div class="meta">'+e.date+' · paid by '+e.payer+' · '+e.splitMode+'<br>shared: '+shareList+'</div>'+
+        '<div class="meta">'+e.date+' · paid by '+e.payer+
+          ' · '+e.splitMode+'<br>shared: '+shareList+'</div>'+
         rateLine+
       '</div>'+
       '<div class="amt">'+p.currency+' '+e.amount.toFixed(2)+hkdLine+'</div>';
@@ -497,9 +619,9 @@ function renderSummary(){
   const rec=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym))
     .reduce((s,e)=>s+e.amountHKD,0);
   document.getElementById("statRec").textContent="HK$"+rec.toFixed(0);
+  document.getElementById("balanceMonthLabel").textContent=ym;
 
-  const months=last6Months();
-  const data=months.map(monthTotalHKD);
+  const months=last6Months();const data=months.map(monthTotalHKD);
   if(trendCh)trendCh.destroy();
   trendCh=new Chart(document.getElementById("trendChart"),{
     type:"line",
@@ -523,32 +645,51 @@ function renderSummary(){
   });
 
   renderBalances(ym);
+  renderSettleHistory();
 }
 
-/* ===== BALANCES ===== */
+/* ===== BALANCES PANEL ===== */
 function renderBalances(ym){
   const p=project();if(!p)return;
-  const bal={};p.people.forEach(n=>bal[n]=0);
-  monthExpenses(ym).forEach(e=>{
-    bal[e.payer]+=e.amountHKD;
-    Object.entries(e.split).forEach(([n,v])=>{if(bal[n]!==undefined)bal[n]-=v*e.rateToHKD;});
-  });
   const box=document.getElementById("balanceList");box.innerHTML="";
-  const debt=[],cred=[];
-  Object.entries(bal).forEach(([n,v])=>{
-    if(v<-0.5)debt.push([n,-v]);else if(v>0.5)cred.push([n,v]);
-  });
-  if(!debt.length&&!cred.length){box.innerHTML='<div class="empty">ALL SETTLED ✓</div>';return;}
-  debt.sort((a,b)=>b[1]-a[1]);cred.sort((a,b)=>b[1]-a[1]);
-  let i=0,j=0;
-  while(i<debt.length&&j<cred.length){
-    const pay=Math.min(debt[i][1],cred[j][1]);
+  const txns=buildTransactions(calcBalances(ym));
+  if(!txns.length){box.innerHTML='<div class="empty">ALL BALANCED ✓</div>';return;}
+  txns.forEach(t=>{
     const d=document.createElement("div");d.className="item";
-    d.innerHTML='<div><span style="color:var(--danger)">'+debt[i][0]+'</span> → <span style="color:var(--blue)">'+cred[j][0]+'</span></div><div class="amt">HK$'+pay.toFixed(2)+'</div>';
+    d.innerHTML=
+      '<div><span style="color:var(--danger)">'+t.from+'</span>'+
+      ' → <span style="color:var(--blue)">'+t.to+'</span></div>'+
+      '<div class="amt">HK$'+t.amt.toFixed(2)+'</div>';
     box.appendChild(d);
-    debt[i][1]-=pay;cred[j][1]-=pay;
-    if(debt[i][1]<0.5)i++;if(cred[j][1]<0.5)j++;
-  }
+  });
+}
+
+/* ===== SETTLEMENT HISTORY ===== */
+function renderSettleHistory(){
+  const p=project();if(!p)return;
+  const box=document.getElementById("settleHistory");box.innerHTML="";
+  if(!STATE.settlements){box.innerHTML='<div class="empty">NO SETTLEMENTS YET</div>';return;}
+  const entries=Object.entries(STATE.settlements)
+    .filter(([k])=>k.startsWith(p.id+"_"))
+    .sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!entries.length){box.innerHTML='<div class="empty">NO SETTLEMENTS YET</div>';return;}
+  entries.forEach(([,s])=>{
+    const d=document.createElement("div");d.className="item";
+    let inner='<div><div style="color:var(--blue)">'+s.month+'</div>'+
+      '<div class="meta">settled on '+s.settledOn+'</div></div>'+
+      '<div style="font-size:8px;color:var(--gray);text-align:right">';
+    if(!s.transactions||!s.transactions.length){
+      inner+='all balanced';
+    }else{
+      s.transactions.forEach(t=>{
+        inner+='<div><span style="color:var(--danger)">'+t.from+'</span>'+
+          ' → <span style="color:var(--blue)">'+t.to+'</span>'+
+          ' HK$'+t.amt.toFixed(2)+'</div>';
+      });
+    }
+    inner+='</div>';d.innerHTML=inner;
+    box.appendChild(d);
+  });
 }
 
 /* ===== AI ADVISOR ===== */
@@ -562,13 +703,14 @@ function renderAI(){
   const avg=totals.slice(0,5).reduce((a,b)=>a+b,0)/5||0;
 
   let html='<div class="head">▸ TREND ANALYSIS · '+p.name+'</div>';
-  if(cur===0){box.innerHTML=html+'<div class="advice">No data yet this month. Start logging to unlock insights.</div>';return;}
-
+  if(cur===0){
+    box.innerHTML=html+'<div class="advice">No data yet this month. Start logging to unlock insights.</div>';
+    return;
+  }
   const diff=prev?((cur-prev)/prev*100):0;
   html+='<div>This month: <b style="color:var(--white)">HK$'+cur.toFixed(0)+'</b></div>';
   html+='<div>6-mo average: HK$'+avg.toFixed(0)+'</div>';
   if(prev)html+='<div>'+(diff>=0?"↑ up":"↓ down")+' '+Math.abs(diff).toFixed(0)+'% vs last month</div>';
-
   html+='<div class="head" style="margin-top:14px">▸ WHERE TO CUT</div>';
   const advice=[];
   if(diff>15)advice.push("Spending jumped "+diff.toFixed(0)+"%. Review the top category before month-end.");
@@ -581,33 +723,19 @@ function renderAI(){
       advice.push(c.toUpperCase()+" leads at "+pct+"% (HK$"+v.toFixed(0)+"). Seek cheaper alternatives or bulk deals.");
   });
   const rec=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym));
-  if(rec.length)advice.push("You have "+rec.length+" recurring charge(s) totaling HK$"+rec.reduce((s,e)=>s+e.amountHKD,0).toFixed(0)+"/mo. Audit for unused subscriptions.");
+  if(rec.length)
+    advice.push("You have "+rec.length+" recurring charge(s) totaling HK$"+
+      rec.reduce((s,e)=>s+e.amountHKD,0).toFixed(0)+"/mo. Audit for unused subscriptions.");
   if((ct["taxi/uber"]||0)>(ct["public transport"]||0)&&ct["taxi/uber"])
-    advice.push("Taxi/Uber exceeds public transport. Shifting half to transit saves ~HK$"+((ct["taxi/uber"])*0.4).toFixed(0)+"/mo.");
+    advice.push("Taxi/Uber exceeds public transport. Shifting half saves ~HK$"+((ct["taxi/uber"])*0.4).toFixed(0)+"/mo.");
   if(!advice.length)advice.push("Spending looks balanced. Consider moving the surplus into INVESTMENT.");
   advice.forEach(a=>html+='<div class="advice">▸ '+a+'</div>');
   box.innerHTML=html;
 }
 
-/* ===== SETTLEMENT BANNER ===== */
-function checkSettlement(){
-  const today=new Date();const ym=today.toISOString().slice(0,7);
-  const banner=document.getElementById("settleBanner");
-  const p=project();
-  if(p&&today.getDate()===1&&STATE.dismissedSettle!==ym){
-    const prev=new Date(today.getFullYear(),today.getMonth()-1,1).toISOString().slice(0,7);
-    document.getElementById("settleText").textContent=
-      "It's the 1st — time to settle "+prev+' for "'+p.name+'". Check who owes whom.';
-    banner.classList.remove("hidden");
-  }else{
-    banner.classList.add("hidden");
-  }
-}
-
 /* ===== PROJECT MODAL ===== */
 let editingProj=null;
 let modalPeople=[];
-
 function fillCurrencies(){
   const s=document.getElementById("pCurrency");s.innerHTML="";
   CURRENCIES.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;s.appendChild(o);});
@@ -621,8 +749,7 @@ function renderPeople(people){
     d.appendChild(inp);
     if(people.length>1){
       const b=document.createElement("button");b.className="btn danger sm";b.textContent="✕";
-      b.onclick=()=>{people.splice(i,1);renderPeople(people);};
-      d.appendChild(b);
+      b.onclick=()=>{people.splice(i,1);renderPeople(people);};d.appendChild(b);
     }
     box.appendChild(d);
   });
@@ -641,7 +768,7 @@ function openProjModal(edit){
     document.getElementById("projModalTitle").textContent="NEW PROJECT";
     document.getElementById("pName").value="";
     document.getElementById("pCurrency").value="HKD";
-    modalPeople=["Me"];
+    modalPeople=["Me","Stephen"];
   }
   renderPeople(modalPeople);
 }
@@ -724,10 +851,9 @@ function wire(){
     if(confirm("Delete this project and all its data?")){
       STATE.projects=STATE.projects.filter(p=>p.id!==STATE.currentId);
       STATE.currentId=STATE.projects[0]?.id||null;
-      sharers=[];
-      await saveState();
+      sharers=[];await saveState();
       document.getElementById("projModal").classList.add("hidden");
-      if(!STATE.currentId){openProjModal(false);}else{render();}
+      if(!STATE.currentId)openProjModal(false);else render();
     }
   };
   document.getElementById("dismissSettleBtn").onclick=async()=>{
@@ -735,10 +861,7 @@ function wire(){
     await saveState();
     document.getElementById("settleBanner").classList.add("hidden");
   };
-  document.getElementById("doSettleBtn").onclick=()=>{
-    switchTab("summary");
-    document.getElementById("settleBanner").classList.add("hidden");
-  };
+  document.getElementById("doSettleBtn").onclick=markSettled;
 }
 
 /* ===== BOOT ===== */
@@ -748,13 +871,16 @@ function wire(){
   if(saved&&saved.projects&&saved.projects.length){
     STATE=saved;
     if(!STATE.currentId)STATE.currentId=STATE.projects[0].id;
+    if(!STATE.settlements)STATE.settlements={};
   }else{
-    const firstProj={id:Date.now(),name:"PER SE",currency:"HKD",people:["Me""Stephen"],expenses:[]};
-    STATE={projects:[firstProj],currentId:firstProj.id,dismissedSettle:null};
+    const firstProj={
+      id:Date.now(),name:"PER SE",currency:"HKD",
+      people:["Me","Stephen"],expenses:[]
+    };
+    STATE={projects:[firstProj],currentId:firstProj.id,dismissedSettle:null,settlements:{}};
     await saveState();
   }
-  wire();
-  render();
+  wire();render();
   if(!project())openProjModal(false);
 })();
 </script>
