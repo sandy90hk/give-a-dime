@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="give a dime">
@@ -24,8 +24,13 @@ body{margin:0;background:var(--bg);color:var(--white);
   padding-bottom:env(safe-area-inset-bottom);}
 h1,h2,h3{font-weight:400;letter-spacing:1px}
 button{font-family:inherit;cursor:pointer}
-input,select,textarea{font-family:inherit;font-size:16px!important;background:var(--panel2);
-  color:var(--white);border:2px solid var(--line);padding:8px;outline:none;-webkit-appearance:none;}
+input,select,textarea{
+  font-family:inherit;font-size:16px!important;background:var(--panel2);
+  color:var(--white);border:2px solid var(--line);padding:8px;outline:none;
+  -webkit-appearance:none;-webkit-text-size-adjust:100%;transform:translateZ(0);}
+input[type="number"]{-moz-appearance:textfield;}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 input:focus,select:focus{border-color:var(--blue)}
 .app{max-width:1100px;margin:0 auto;padding:16px}
 header{border:3px solid var(--line);background:var(--panel);padding:16px;margin-bottom:14px;
@@ -53,7 +58,8 @@ select.proj{min-width:150px}
 .hidden{display:none!important}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
-.cat{border:2px solid var(--line);background:var(--panel2);padding:10px 6px;text-align:center;font-size:8px;color:var(--gray)}
+.cat{border:2px solid var(--line);background:var(--panel2);padding:10px 6px;
+  text-align:center;font-size:8px;color:var(--gray)}
 .cat.active{border-color:var(--blue);color:var(--white);background:var(--blue-soft)}
 .item{border:2px solid var(--line);background:var(--panel2);padding:12px;margin-bottom:8px;
   display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -66,7 +72,8 @@ select.proj{min-width:150px}
 .split-row .name{flex:1;font-size:8px;color:var(--gray)}
 .split-row input{width:90px}
 .people-list{display:flex;flex-direction:column;gap:6px}
-.person-tag{display:flex;justify-content:space-between;align-items:center;border:2px solid var(--line);padding:8px;background:var(--panel2)}
+.person-tag{display:flex;justify-content:space-between;align-items:center;
+  border:2px solid var(--line);padding:8px;background:var(--panel2)}
 .stat{border:2px solid var(--line);background:var(--panel2);padding:14px;text-align:center}
 .stat .num{font-size:16px;color:var(--blue);margin-top:8px}
 .stat .lab{font-size:8px;color:var(--gray)}
@@ -76,12 +83,13 @@ select.proj{min-width:150px}
 .settle-banner{border:2px solid var(--danger);background:#1a0f12;padding:14px;margin-bottom:14px}
 .settle-banner .head{color:var(--danger);margin-bottom:8px;font-size:9px}
 .settle-detail{border:2px solid var(--line);background:var(--panel2);padding:12px;margin-bottom:8px}
-.settle-detail .who{font-size:9px;margin-bottom:8px}
+.settle-detail .who{font-size:9px;margin-bottom:4px}
 .settle-detail .who span.owe{color:var(--danger)}
 .settle-detail .who span.recv{color:var(--blue)}
-.settle-confirmed{border:2px solid #4aff9a;background:#0a1f12;padding:12px;margin-bottom:8px;font-size:8px;color:#4aff9a}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;
-  justify-content:center;padding:16px;z-index:50;overflow:auto}
+.settle-confirmed{border:2px solid #4aff9a;background:#0a1f12;padding:12px;
+  margin-bottom:8px;font-size:8px;color:#4aff9a}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;
+  align-items:center;justify-content:center;padding:16px;z-index:50;overflow:auto}
 .modal{border:3px solid var(--blue);background:var(--panel);padding:20px;
   max-width:520px;width:100%;max-height:90vh;overflow:auto}
 .empty{color:var(--gray-dim);text-align:center;padding:30px;font-size:8px}
@@ -90,6 +98,10 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
 .rate-tag{font-size:7px;color:var(--gray-dim);margin-top:4px}
 .editing{border-color:var(--danger)!important}
 .settle-month-label{color:var(--danger);font-size:9px}
+.person-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.pf-btn{border:2px solid var(--line);background:var(--panel2);padding:8px 12px;
+  font-size:8px;color:var(--gray);font-family:inherit;cursor:pointer}
+.pf-btn.active{border-color:var(--blue);color:var(--white);background:var(--blue-soft)}
 </style>
 </head>
 <body>
@@ -121,6 +133,7 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     <button class="tab" data-tab="ai">AI ADVISOR</button>
   </div>
 
+  <!-- ADD TAB -->
   <section id="tab-add">
     <div class="panel" id="addPanel">
       <h2 id="addTitle">▸ NEW SPENDING</h2>
@@ -180,6 +193,7 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     </div>
   </section>
 
+  <!-- LEDGER TAB -->
   <section id="tab-list" class="hidden">
     <div class="panel">
       <h2>▸ LEDGER · <span id="listMonthLabel"></span></h2>
@@ -191,35 +205,60 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     </div>
   </section>
 
+  <!-- SUMMARY TAB -->
   <section id="tab-summary" class="hidden">
+
+    <!-- PERSON FILTER -->
+    <div class="panel" style="padding:12px 16px;margin-bottom:10px">
+      <div class="small" style="margin-bottom:8px">VIEW AS:</div>
+      <div class="person-filter" id="personFilter"></div>
+    </div>
+
     <div class="grid" style="margin-bottom:14px">
       <div class="stat"><div class="lab">MONTH TOTAL (HKD)</div><div class="num" id="statTotal">—</div></div>
       <div class="stat"><div class="lab">TOP CATEGORY</div><div class="num" id="statTop" style="font-size:10px">—</div></div>
       <div class="stat"><div class="lab">RECURRING/MO</div><div class="num" id="statRec">—</div></div>
     </div>
-    <div class="panel"><h2>▸ 6-MONTH TREND (HKD)</h2><canvas id="trendChart" height="130"></canvas></div>
-    <div class="panel"><h2>▸ CATEGORY BREAKDOWN</h2><canvas id="catChart" height="130"></canvas></div>
+
     <div class="panel">
+      <h2>▸ 6-MONTH TREND (HKD) · <span id="trendLabel" style="color:var(--gray)"></span></h2>
+      <canvas id="trendChart" height="130"></canvas>
+    </div>
+    <div class="panel">
+      <h2>▸ CATEGORY BREAKDOWN · <span id="catLabel" style="color:var(--gray)"></span></h2>
+      <canvas id="catChart" height="130"></canvas>
+    </div>
+
+    <div id="balancePanel" class="panel">
       <h2>▸ WHO OWES WHOM · <span id="balanceMonthLabel" class="settle-month-label"></span></h2>
       <div id="balanceList"></div>
     </div>
-    <div class="panel">
+    <div id="settleHistoryPanel" class="panel">
       <h2>▸ SETTLEMENT HISTORY</h2>
       <div id="settleHistory"></div>
     </div>
+
   </section>
 
+  <!-- AI TAB -->
   <section id="tab-ai" class="hidden">
     <div class="panel"><h2>▸ AI SPENDING ADVISOR</h2><div class="ai-box" id="aiBox"></div></div>
   </section>
 
 </div>
 
+<!-- PROJECT MODAL -->
 <div class="modal-bg hidden" id="projModal">
   <div class="modal">
     <h2 style="color:var(--blue);font-size:12px" id="projModalTitle">NEW PROJECT</h2>
-    <div class="field" style="margin-bottom:12px"><label>PROJECT NAME</label><input id="pName" placeholder="e.g. Japan Trip"></div>
-    <div class="field" style="margin-bottom:12px"><label>CURRENCY</label><select id="pCurrency"></select></div>
+    <div class="field" style="margin-bottom:12px">
+      <label>PROJECT NAME</label>
+      <input id="pName" placeholder="e.g. Japan Trip">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label>CURRENCY</label>
+      <select id="pCurrency"></select>
+    </div>
     <label class="small">PEOPLE (1-4)</label>
     <div class="people-list" id="peopleList" style="margin:8px 0"></div>
     <button class="btn ghost sm" id="addPersonBtn">+ ADD PERSON</button>
@@ -230,7 +269,7 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     </div>
   </div>
 </div>
-      
+
 <script>
 /* ===== PREVENT iOS ZOOM ON INPUT FOCUS ===== */
 (function(){
@@ -240,13 +279,10 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:1
     if(now-lastTouchEnd<=300){e.preventDefault();}
     lastTouchEnd=now;
   },false);
-  // Force viewport scale reset on any input focus
   document.addEventListener('focusin',function(e){
     if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){
       var mv=document.querySelector('meta[name="viewport"]');
-      if(mv){
-        mv.content='width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-      }
+      if(mv){mv.content='width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';}
     }
   },true);
 })();
@@ -302,6 +338,7 @@ async function fetchRateToHKD(cur){
 let selCat=CATEGORIES[0];
 let sharers=[];
 let editingExpId=null;
+let summaryPerson="ALL";
 
 /* ===== CATEGORIES ===== */
 function buildCats(){
@@ -319,7 +356,9 @@ function buildCats(){
 function buildPayer(){
   const p=project();if(!p)return;
   const s=document.getElementById("payerIn");const cur=s.value;s.innerHTML="";
-  p.people.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});
+  p.people.forEach(n=>{
+    const o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);
+  });
   if(p.people.includes(cur))s.value=cur;
 }
 
@@ -342,7 +381,7 @@ function buildShareBtns(){
   });
 }
 
-/* ===== SPLIT ROWS (with auto-calc for 2 people) ===== */
+/* ===== SPLIT ROWS (auto-calc for 2 people) ===== */
 function buildSplit(){
   const mode=document.getElementById("splitModeIn").value;
   const box=document.getElementById("splitRows");
@@ -362,16 +401,15 @@ function buildSplit(){
     inp.dataset.name=n;inp.className="splitInp";inp.dataset.idx=idx;
     inp.oninput=()=>{
       if(sharers.length!==2)return;
-      const val=parseFloat(inp.value);
-      if(isNaN(val))return;
-      const otherInp=document.querySelector('.splitInp[data-idx="'+(1-idx)+'"]');
-      if(!otherInp)return;
+      const val=parseFloat(inp.value);if(isNaN(val))return;
+      const other=document.querySelector('.splitInp[data-idx="'+(1-idx)+'"]');
+      if(!other)return;
       if(mode==="percent"){
-        const other=Math.max(0,100-val);
-        otherInp.value=other%1===0?other:other.toFixed(1);
+        const o=Math.max(0,100-val);
+        other.value=o%1===0?o:o.toFixed(1);
       }else{
-        const other=Math.max(0,totalAmt-val);
-        otherInp.value=other%1===0?other:other.toFixed(2);
+        const o=Math.max(0,totalAmt-val);
+        other.value=o%1===0?o:o.toFixed(2);
       }
     };
     row.appendChild(inp);box.appendChild(row);
@@ -442,8 +480,7 @@ async function saveExpense(){
   const expiry=document.getElementById("expiryIn").value||null;
   const payer=document.getElementById("payerIn").value;
   const mode=document.getElementById("splitModeIn").value;
-
-  if(!sharers.length){alert("Select at least one person to share the cost");return;}
+  if(!sharers.length){alert("Select at least one person");return;}
   let split={};
   if(mode==="equal"){
     const share=amt/sharers.length;sharers.forEach(n=>split[n]=share);
@@ -459,18 +496,15 @@ async function saveExpense(){
       if(Math.abs(total-amt)>0.5){alert("Amounts must total "+amt+" (now "+total+")");return;}
     }
   }
-
   const btn=document.getElementById("saveExpBtn");const origLabel=btn.textContent;
   btn.textContent="FETCHING RATE...";btn.disabled=true;
   const rr=await fetchRateToHKD(p.currency);
   btn.textContent=origLabel;btn.disabled=false;
-
   const exp={
     id:editingExpId||Date.now(),desc,cat:selCat,amount:amt,currency:p.currency,
     rateToHKD:rr.rate,rateLive:rr.live,rateDate:rr.date||date,
     amountHKD:amt*rr.rate,date,freq,expiry,payer,splitMode:mode,split
   };
-
   const wasEditing=!!editingExpId;
   if(editingExpId){
     const idx=p.expenses.findIndex(x=>x.id===editingExpId);
@@ -497,6 +531,30 @@ function monthExpenses(ym){
   return p.expenses.filter(e=>activeInMonth(e,ym));
 }
 
+/* ===== PERSON-FILTERED DATA ===== */
+function personTotal(ym){
+  const all=monthExpenses(ym);
+  if(summaryPerson==="ALL")return all.reduce((s,e)=>s+e.amountHKD,0);
+  return all.reduce((s,e)=>{
+    const share=e.split[summaryPerson];
+    if(share===undefined)return s;
+    return s+share*(e.currency==="HKD"?1:e.rateToHKD);
+  },0);
+}
+function personCatTotals(ym){
+  const t={};const all=monthExpenses(ym);
+  if(summaryPerson==="ALL"){
+    all.forEach(e=>t[e.cat]=(t[e.cat]||0)+e.amountHKD);
+  }else{
+    all.forEach(e=>{
+      const share=e.split[summaryPerson];
+      if(share===undefined)return;
+      t[e.cat]=(t[e.cat]||0)+share*(e.currency==="HKD"?1:e.rateToHKD);
+    });
+  }
+  return t;
+}
+
 /* ===== BALANCE CALCULATION ===== */
 function calcBalances(ym){
   const p=project();if(!p)return{};
@@ -509,7 +567,6 @@ function calcBalances(ym){
   });
   return bal;
 }
-
 function buildTransactions(bal){
   const debt=[],cred=[];
   Object.entries(bal).forEach(([n,v])=>{
@@ -539,7 +596,6 @@ function checkSettlement(){
   const settleKey=p.id+"_"+prevYm;
   if(STATE.settlements&&STATE.settlements[settleKey]){banner.classList.add("hidden");return;}
   if(STATE.dismissedSettle===ym){banner.classList.add("hidden");return;}
-
   const bal=calcBalances(prevYm);
   const txns=buildTransactions(bal);
   document.getElementById("settleMonthLine").textContent=
@@ -561,8 +617,6 @@ function checkSettlement(){
   }
   banner.classList.remove("hidden");
 }
-
-/* ===== MARK SETTLED ===== */
 async function markSettled(){
   const today=new Date();
   const prevDate=new Date(today.getFullYear(),today.getMonth()-1,1);
@@ -612,8 +666,7 @@ function renderList(){
     const amtBox=div.querySelector(".amt");
     const editBtn=document.createElement("button");
     editBtn.className="btn ghost sm";editBtn.textContent="EDIT";
-    editBtn.style.marginLeft="8px";
-    editBtn.onclick=()=>loadForEdit(e);
+    editBtn.style.marginLeft="8px";editBtn.onclick=()=>loadForEdit(e);
     amtBox.appendChild(editBtn);
     const delBtn=document.createElement("button");
     delBtn.className="btn danger sm";delBtn.textContent="DEL";
@@ -629,7 +682,7 @@ function renderList(){
   });
 }
 
-/* ===== CHARTS ===== */
+/* ===== SUMMARY ===== */
 let trendCh,catCh;
 function last6Months(){
   const a=[];const d=new Date();
@@ -639,27 +692,54 @@ function last6Months(){
   }
   return a;
 }
-function monthTotalHKD(ym){return monthExpenses(ym).reduce((s,e)=>s+e.amountHKD,0);}
-function catTotals(ym){
-  const t={};
-  monthExpenses(ym).forEach(e=>t[e.cat]=(t[e.cat]||0)+e.amountHKD);
-  return t;
+
+function buildPersonFilter(){
+  const p=project();if(!p)return;
+  const box=document.getElementById("personFilter");box.innerHTML="";
+  const options=["ALL",...p.people];
+  if(!options.includes(summaryPerson))summaryPerson="ALL";
+  options.forEach(name=>{
+    const b=document.createElement("button");
+    b.className="pf-btn"+(summaryPerson===name?" active":"");
+    b.textContent=name==="ALL"?"EVERYONE":name.toUpperCase();
+    b.onclick=()=>{summaryPerson=name;renderSummary();};
+    box.appendChild(b);
+  });
 }
 
 function renderSummary(){
   const p=project();if(!p)return;
+  buildPersonFilter();
   const ym=new Date().toISOString().slice(0,7);
-  const total=monthTotalHKD(ym);
+  const label=summaryPerson==="ALL"?"EVERYONE":summaryPerson.toUpperCase();
+
+  // stats
+  const total=personTotal(ym);
   document.getElementById("statTotal").textContent="HK$"+total.toFixed(0);
-  const ct=catTotals(ym);
+  const ct=personCatTotals(ym);
   const top=Object.entries(ct).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById("statTop").textContent=top?top[0].toUpperCase():"—";
-  const rec=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym))
-    .reduce((s,e)=>s+e.amountHKD,0);
-  document.getElementById("statRec").textContent="HK$"+rec.toFixed(0);
-  document.getElementById("balanceMonthLabel").textContent=ym;
 
-  const months=last6Months();const data=months.map(monthTotalHKD);
+  // recurring
+  let rec=0;
+  const recItems=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym));
+  if(summaryPerson==="ALL"){
+    rec=recItems.reduce((s,e)=>s+e.amountHKD,0);
+  }else{
+    recItems.forEach(e=>{
+      const share=e.split[summaryPerson];
+      if(share!==undefined)rec+=share*(e.currency==="HKD"?1:e.rateToHKD);
+    });
+  }
+  document.getElementById("statRec").textContent="HK$"+rec.toFixed(0);
+
+  // trend chart label
+  document.getElementById("trendLabel").textContent=label;
+  document.getElementById("catLabel").textContent=label;
+
+  // 6-month trend
+  const months=last6Months();
+  const data=months.map(m=>personTotal(m));
   if(trendCh)trendCh.destroy();
   trendCh=new Chart(document.getElementById("trendChart"),{
     type:"line",
@@ -670,6 +750,7 @@ function renderSummary(){
       y:{ticks:{color:"#8b93a7",font:{family:"'Press Start 2P'",size:6}},grid:{color:"#2a3242"}}}}
   });
 
+  // category chart
   const ce=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
   if(catCh)catCh.destroy();
   const palette=["#4aa3ff","#2f6fd0","#8b93a7","#f4f6fb","#565f73","#1a2740","#6db3ff","#3d4a63"];
@@ -682,13 +763,18 @@ function renderSummary(){
       y:{ticks:{color:"#8b93a7",font:{family:"'Press Start 2P'",size:6}},grid:{color:"#2a3242"}}}}
   });
 
-  renderBalances(ym);
-  renderSettleHistory();
+  // balances + history: only in EVERYONE mode
+  const showAll=summaryPerson==="ALL";
+  document.getElementById("balancePanel").style.display=showAll?"":"none";
+  document.getElementById("settleHistoryPanel").style.display=showAll?"":"none";
+  if(showAll){
+    document.getElementById("balanceMonthLabel").textContent=ym;
+    renderBalances(ym);
+    renderSettleHistory();
+  }
 }
 
-/* ===== BALANCES PANEL ===== */
 function renderBalances(ym){
-  const p=project();if(!p)return;
   const box=document.getElementById("balanceList");box.innerHTML="";
   const txns=buildTransactions(calcBalances(ym));
   if(!txns.length){box.innerHTML='<div class="empty">ALL BALANCED ✓</div>';return;}
@@ -702,7 +788,6 @@ function renderBalances(ym){
   });
 }
 
-/* ===== SETTLEMENT HISTORY ===== */
 function renderSettleHistory(){
   const p=project();if(!p)return;
   const box=document.getElementById("settleHistory");box.innerHTML="";
@@ -734,9 +819,11 @@ function renderSettleHistory(){
 function renderAI(){
   const box=document.getElementById("aiBox");const p=project();
   if(!p){box.innerHTML='<div class="advice">Create a project to unlock insights.</div>';return;}
-  const months=last6Months();const totals=months.map(monthTotalHKD);
+  const months=last6Months();
+  const totals=months.map(m=>monthExpenses(m).reduce((s,e)=>s+e.amountHKD,0));
   const cur=totals[5],prev=totals[4];
-  const ym=months[5];const ct=catTotals(ym);
+  const ym=months[5];
+  const ct={};monthExpenses(ym).forEach(e=>ct[e.cat]=(ct[e.cat]||0)+e.amountHKD);
   const sorted=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
   const avg=totals.slice(0,5).reduce((a,b)=>a+b,0)/5||0;
   let html='<div class="head">▸ TREND ANALYSIS · '+p.name+'</div>';
@@ -750,21 +837,21 @@ function renderAI(){
   if(prev)html+='<div>'+(diff>=0?"↑ up":"↓ down")+' '+Math.abs(diff).toFixed(0)+'% vs last month</div>';
   html+='<div class="head" style="margin-top:14px">▸ WHERE TO CUT</div>';
   const advice=[];
-  if(diff>15)advice.push("Spending jumped "+diff.toFixed(0)+"%. Review the top category before month-end.");
+  if(diff>15)advice.push("Spending jumped "+diff.toFixed(0)+"%. Review top categories.");
   const wants=["entertainment","clothes","music","snacks & drinks","beauty"];
   sorted.slice(0,3).forEach(([c,v])=>{
     const pct=(v/cur*100).toFixed(0);
     if(wants.includes(c))
-      advice.push(c.toUpperCase()+" is "+pct+"% of spend — discretionary. Trimming 20% saves ~HK$"+(v*0.2).toFixed(0)+"/mo.");
+      advice.push(c.toUpperCase()+" is "+pct+"% — discretionary. Trimming 20% saves ~HK$"+(v*0.2).toFixed(0)+"/mo.");
     else
-      advice.push(c.toUpperCase()+" leads at "+pct+"% (HK$"+v.toFixed(0)+"). Seek cheaper alternatives or bulk deals.");
+      advice.push(c.toUpperCase()+" leads at "+pct+"% (HK$"+v.toFixed(0)+"). Look for bulk deals.");
   });
   const rec=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym));
   if(rec.length)
     advice.push("You have "+rec.length+" recurring charge(s) totaling HK$"+
-      rec.reduce((s,e)=>s+e.amountHKD,0).toFixed(0)+"/mo. Audit for unused subscriptions.");
+      rec.reduce((s,e)=>s+e.amountHKD,0).toFixed(0)+"/mo. Audit for unused ones.");
   if((ct["taxi/uber"]||0)>(ct["public transport"]||0)&&ct["taxi/uber"])
-    advice.push("Taxi/Uber exceeds public transport. Shifting half saves ~HK$"+((ct["taxi/uber"])*0.4).toFixed(0)+"/mo.");
+    advice.push("Taxi/Uber exceeds transit spend. Shifting half saves ~HK$"+((ct["taxi/uber"])*0.4).toFixed(0)+"/mo.");
   if(!advice.length)advice.push("Spending looks balanced. Consider moving the surplus into INVESTMENT.");
   advice.forEach(a=>html+='<div class="advice">▸ '+a+'</div>');
   box.innerHTML=html;
@@ -876,7 +963,7 @@ function wire(){
   document.getElementById("thisMonthBtn").onclick=()=>{
     document.getElementById("monthFilter").value=new Date().toISOString().slice(0,7);renderList();};
   document.getElementById("projSelect").onchange=async e=>{
-    STATE.currentId=+e.target.value;sharers=[];
+    STATE.currentId=+e.target.value;sharers=[];summaryPerson="ALL";
     resetAddForm();await saveState();render();};
   document.getElementById("newProjBtn").onclick=()=>openProjModal(false);
   document.getElementById("editProjBtn").onclick=()=>openProjModal(true);
