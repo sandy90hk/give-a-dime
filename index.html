@@ -10,8 +10,8 @@
 <link rel="manifest" href="manifest.json">
 <title>記賬 · PIXEL LEDGER</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<user-input src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></user-input>
-<user-input>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
 :root{
   --bg:#000;--panel:#0c0f14;--panel2:#121722;--line:#2a3242;
   --white:#f4f6fb;--gray:#8b93a7;--gray-dim:#565f73;
@@ -79,7 +79,7 @@ select.proj{min-width:150px}
 canvas{background:var(--panel2);border:2px solid var(--line);padding:8px}
 .small{font-size:8px;color:var(--gray)}
 .rate-tag{font-size:7px;color:var(--gray-dim);margin-top:4px}
-</user-input>
+</style>
 </head>
 <body>
 <div class="app">
@@ -182,7 +182,7 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px}
   </div>
 </div>
 
-```<user-input>
+<script>
 /* ===== CONFIG ===== */
 const CATEGORIES = ["lunch","dinner","grocery","health","beauty","entertainment","gift",
 "pocket money","taxi/uber","public transport","accommodation","hotel","flight","clothes",
@@ -530,6 +530,6 @@ function wire(){
   wire();render();
   if(!project())openProjModal(false);
 })();
-</user-input>
+</script>
 </body>
 </html>
