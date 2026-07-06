@@ -749,7 +749,7 @@ function wire(){
     STATE=saved;
     if(!STATE.currentId)STATE.currentId=STATE.projects[0].id;
   }else{
-    const firstProj={id:Date.now(),name:"PER SE",currency:"HKD",people:["Me"],expenses:[]};
+    const firstProj={id:Date.now(),name:"PER SE",currency:"HKD",people:["Me""Stephen"],expenses:[]};
     STATE={projects:[firstProj],currentId:firstProj.id,dismissedSettle:null};
     await saveState();
   }
