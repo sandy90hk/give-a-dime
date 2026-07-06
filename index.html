@@ -76,7 +76,7 @@ select.proj{min-width:150px}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
 .modal{border:3px solid var(--blue);background:var(--panel);padding:20px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
 .empty{color:var(--gray-dim);text-align:center;padding:30px;font-size:8px}
-canvas{background:var(--panel2);border:2px solid var(--line);padding:8px}
+canvas{background:var(--panel2);border:2px solid var(--line);padding:8px;width:100%!important}
 .small{font-size:8px;color:var(--gray)}
 .rate-tag{font-size:7px;color:var(--gray-dim);margin-top:4px}
 .editing{border-color:var(--danger)!important}
@@ -190,13 +190,573 @@ canvas{background:var(--panel2);border:2px solid var(--line);padding:8px}
 
 <script>
 /* ===== CONFIG ===== */
-const CATEGORIES = ["lunch","dinner","grocery","health","beauty","entertainment","gift",
+const CATEGORIES=["lunch","dinner","grocery","health","beauty","entertainment","gift",
 "pocket money","taxi/uber","public transport","accommodation","hotel","flight","clothes",
 "music","snacks & drinks","telecom","insurance","investment","teaching"];
-const CURRENCIES = ["HKD","USD","EUR","GBP","JPY","CNY","TWD","KRW","SGD","AUD","THB","MYR"];
+const CURRENCIES=["HKD","USD","EUR","GBP","JPY","CNY","TWD","KRW","SGD","AUD","THB","MYR"];
 
-/* ===== INDEXEDDB STORAGE (app-owned) ===== */
-const IDB = {
+/* ===== INDEXEDDB ===== */
+const IDB={
   db:null,
   open(){return new Promise((res,rej)=>{
     const r=indexedDB.open("giveadime",1);
+    r.onupgradeneeded=e=>{const d=e.target.result;
+      if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv");};
+    r.onsuccess=e=>{this.db=e.target.result;res();};
+    r.onerror=e=>rej(e);
+  });},
+  get(k){return new Promise(res=>{
+    const t=this.db.transaction("kv","readonly").objectStore("kv").get(k);
+    t.onsuccess=()=>res(t.result);t.onerror=()=>res(undefined);
+  });},
+  set(k,v){return new Promise(res=>{
+    const t=this.db.transaction("kv","readwrite").objectStore("kv").put(v,k);
+    t.onsuccess=()=>res();
+  });}
+};
+
+/* ===== STATE ===== */
+let STATE={projects:[],currentId:null,dismissedSettle:null};
+async function saveState(){await IDB.set("state",STATE);}
+function project(){return STATE.projects.find(p=>p.id===STATE.currentId);}
+
+/* ===== EXCHANGE RATE ===== */
+async function fetchRateToHKD(cur){
+  if(cur==="HKD")return{rate:1,live:true};
+  try{
+    const r=await fetch("https://api.frankfurter.dev/v1/latest?base="+cur+"&symbols=HKD");
+    const j=await r.json();
+    if(j&&j.rates&&j.rates.HKD)return{rate:j.rates.HKD,live:true,date:j.date};
+    throw 0;
+  }catch(e){
+    const m=prompt("Live rate unavailable. Enter 1 "+cur+" = ? HKD","");
+    return{rate:parseFloat(m)||1,live:false};
+  }
+}
+
+/* ===== FORM STATE ===== */
+let selCat=CATEGORIES[0];
+let sharers=[];
+let editingExpId=null;
+
+/* ===== BUILD CATEGORIES ===== */
+function buildCats(){
+  const g=document.getElementById("catGrid");g.innerHTML="";
+  CATEGORIES.forEach(c=>{
+    const d=document.createElement("div");
+    d.className="cat"+(c===selCat?" active":"");
+    d.textContent=c.toUpperCase();
+    d.onclick=()=>{selCat=c;buildCats();};
+    g.appendChild(d);
+  });
+}
+
+/* ===== BUILD PAYER ===== */
+function buildPayer(){
+  const p=project();if(!p)return;
+  const s=document.getElementById("payerIn");const cur=s.value;s.innerHTML="";
+  p.people.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});
+  if(p.people.includes(cur))s.value=cur;
+}
+
+/* ===== BUILD SHARE BUTTONS ===== */
+function buildShareBtns(){
+  const p=project();if(!p)return;
+  const box=document.getElementById("shareBtns");box.innerHTML="";
+  if(!sharers.length)sharers=[...p.people];
+  sharers=sharers.filter(n=>p.people.includes(n));
+  p.people.forEach(n=>{
+    const d=document.createElement("div");
+    d.className="cat"+(sharers.includes(n)?" active":"");
+    d.textContent=n.toUpperCase();
+    d.onclick=()=>{
+      if(sharers.includes(n)){if(sharers.length>1)sharers=sharers.filter(x=>x!==n);}
+      else sharers.push(n);
+      buildShareBtns();buildSplit();
+    };
+    box.appendChild(d);
+  });
+}
+
+/* ===== BUILD SPLIT ROWS ===== */
+function buildSplit(){
+  const mode=document.getElementById("splitModeIn").value;
+  const box=document.getElementById("splitRows");
+  const hint=document.getElementById("splitHint");
+  box.innerHTML="";
+  if(mode==="equal"){
+    hint.textContent="→ Split evenly among "+sharers.length+" selected: "+sharers.join(", ");
+    return;
+  }
+  sharers.forEach(n=>{
+    const row=document.createElement("div");row.className="split-row";
+    row.innerHTML='<span class="name">'+n+'</span>';
+    const inp=document.createElement("input");
+    inp.type="number";inp.inputMode="decimal";
+    inp.placeholder=mode==="percent"?"%":"amt";
+    inp.dataset.name=n;inp.className="splitInp";
+    row.appendChild(inp);box.appendChild(row);
+  });
+  hint.textContent=mode==="percent"
+    ?"→ Percentages (selected people) should total 100%."
+    :"→ Amounts (selected people) should total the spending.";
+}
+
+/* ===== RESET FORM ===== */
+function resetAddForm(){
+  editingExpId=null;
+  document.getElementById("descIn").value="";
+  document.getElementById("amtIn").value="";
+  document.getElementById("freqIn").value="once";
+  document.getElementById("expiryIn").value="";
+  document.getElementById("expiryField").classList.add("hidden");
+  document.getElementById("splitModeIn").value="equal";
+  document.getElementById("saveExpBtn").textContent="▸ SAVE SPENDING";
+  document.getElementById("addTitle").textContent="▸ NEW SPENDING";
+  document.getElementById("addPanel").classList.remove("editing");
+  document.getElementById("cancelEditBtn").classList.add("hidden");
+  const p=project();if(p)sharers=[...p.people];
+  selCat=CATEGORIES[0];
+}
+
+/* ===== LOAD ITEM FOR EDIT ===== */
+function loadForEdit(e){
+  editingExpId=e.id;
+  selCat=e.cat;
+  document.getElementById("descIn").value=e.desc;
+  document.getElementById("amtIn").value=e.amount;
+  document.getElementById("dateIn").value=e.date;
+  document.getElementById("freqIn").value=e.freq;
+  document.getElementById("expiryField").classList.toggle("hidden",e.freq!=="monthly");
+  document.getElementById("expiryIn").value=e.expiry||"";
+  document.getElementById("splitModeIn").value=e.splitMode;
+  sharers=Object.keys(e.split);
+  document.getElementById("saveExpBtn").textContent="▸ UPDATE SPENDING";
+  document.getElementById("addTitle").textContent="▸ EDIT SPENDING";
+  document.getElementById("addPanel").classList.add("editing");
+  document.getElementById("cancelEditBtn").classList.remove("hidden");
+  buildCats();buildPayer();
+  document.getElementById("payerIn").value=e.payer;
+  buildShareBtns();buildSplit();
+  if(e.splitMode!=="equal"){
+    setTimeout(()=>{
+      document.querySelectorAll(".splitInp").forEach(inp=>{
+        const n=inp.dataset.name;
+        if(e.splitMode==="percent"){
+          const tot=Object.values(e.split).reduce((a,b)=>a+b,0)||1;
+          inp.value=((e.split[n]/tot)*100).toFixed(1);
+        }else{
+          inp.value=e.split[n];
+        }
+      });
+    },0);
+  }
+  switchTab("add");
+  window.scrollTo(0,0);
+}
+
+/* ===== SAVE / UPDATE EXPENSE ===== */
+async function saveExpense(){
+  const p=project();if(!p){alert("Create a project first");return;}
+  const desc=document.getElementById("descIn").value.trim()||selCat;
+  const amt=parseFloat(document.getElementById("amtIn").value);
+  if(!amt||amt<=0){alert("Enter a valid amount");return;}
+  const date=document.getElementById("dateIn").value||new Date().toISOString().slice(0,10);
+  const freq=document.getElementById("freqIn").value;
+  const expiry=document.getElementById("expiryIn").value||null;
+  const payer=document.getElementById("payerIn").value;
+  const mode=document.getElementById("splitModeIn").value;
+
+  if(!sharers.length){alert("Select at least one person to share the cost");return;}
+  let split={};
+  if(mode==="equal"){
+    const share=amt/sharers.length;
+    sharers.forEach(n=>split[n]=share);
+  }else{
+    let total=0;
+    document.querySelectorAll(".splitInp").forEach(i=>{
+      const v=parseFloat(i.value)||0;split[i.dataset.name]=v;total+=v;
+    });
+    if(mode==="percent"){
+      if(Math.abs(total-100)>0.5){alert("Percentages must total 100 (now "+total+")");return;}
+      Object.keys(split).forEach(n=>split[n]=amt*(split[n]/100));
+    }else{
+      if(Math.abs(total-amt)>0.5){alert("Amounts must total "+amt+" (now "+total+")");return;}
+    }
+  }
+
+  const btn=document.getElementById("saveExpBtn");
+  const origLabel=btn.textContent;
+  btn.textContent="FETCHING RATE...";btn.disabled=true;
+  const rr=await fetchRateToHKD(p.currency);
+  btn.textContent=origLabel;btn.disabled=false;
+
+  const exp={
+    id:editingExpId||Date.now(),desc,cat:selCat,amount:amt,currency:p.currency,
+    rateToHKD:rr.rate,rateLive:rr.live,rateDate:rr.date||date,
+    amountHKD:amt*rr.rate,date,freq,expiry,payer,splitMode:mode,split
+  };
+
+  const wasEditing=!!editingExpId;
+  if(editingExpId){
+    const idx=p.expenses.findIndex(x=>x.id===editingExpId);
+    if(idx>-1)p.expenses[idx]=exp;
+  }else{
+    p.expenses.push(exp);
+  }
+  await saveState();
+  resetAddForm();
+  buildCats();buildShareBtns();buildSplit();
+  alert((wasEditing?"Updated":"Saved")+" ✓  (1 "+p.currency+" = "+rr.rate.toFixed(4)+" HKD"+(rr.live?", live":", manual")+")");
+  render();
+}
+
+/* ===== RECURRING HELPER ===== */
+function activeInMonth(exp,ym){
+  const start=exp.date.slice(0,7);
+  if(exp.freq==="once")return start===ym;
+  if(start>ym)return false;
+  if(exp.expiry&&exp.expiry.slice(0,7)<ym)return false;
+  return true;
+}
+function monthExpenses(ym){
+  const p=project();if(!p)return[];
+  return p.expenses.filter(e=>activeInMonth(e,ym));
+}
+
+/* ===== RENDER LEDGER ===== */
+function renderList(){
+  const ym=document.getElementById("monthFilter").value||new Date().toISOString().slice(0,7);
+  document.getElementById("listMonthLabel").textContent=ym;
+  const p=project();const list=document.getElementById("expList");list.innerHTML="";
+  if(!p){list.innerHTML='<div class="empty">NO PROJECT SELECTED</div>';return;}
+  const items=monthExpenses(ym);
+  if(!items.length){list.innerHTML='<div class="empty">NO SPENDING THIS MONTH</div>';return;}
+  items.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
+    const div=document.createElement("div");div.className="item";
+    const recBadge=e.freq==="monthly"
+      ?'<span class="badge rec">↻ MONTHLY'+(e.expiry?" · ends "+e.expiry:"")+'</span>':"";
+    const hkdLine=p.currency!=="HKD"
+      ?'<span class="hkd">≈ HK$'+e.amountHKD.toFixed(2)+'</span>':"";
+    const rateLine=p.currency!=="HKD"
+      ?'<div class="rate-tag">rate '+e.rateToHKD.toFixed(4)+' · '+(e.rateLive?'live '+e.rateDate:'manual')+'</div>':"";
+    const shareList=Object.keys(e.split).join(", ");
+    div.innerHTML=
+      '<div>'+
+        '<div>'+recBadge+'<span class="badge">'+e.cat.toUpperCase()+'</span></div>'+
+        '<div style="margin-top:6px">'+e.desc+'</div>'+
+        '<div class="meta">'+e.date+' · paid by '+e.payer+' · '+e.splitMode+'<br>shared: '+shareList+'</div>'+
+        rateLine+
+      '</div>'+
+      '<div class="amt">'+p.currency+' '+e.amount.toFixed(2)+hkdLine+'</div>';
+    const amtBox=div.querySelector(".amt");
+    const editBtn=document.createElement("button");
+    editBtn.className="btn ghost sm";editBtn.textContent="EDIT";
+    editBtn.style.marginLeft="8px";
+    editBtn.onclick=()=>loadForEdit(e);
+    amtBox.appendChild(editBtn);
+    const delBtn=document.createElement("button");
+    delBtn.className="btn danger sm";delBtn.textContent="DEL";
+    delBtn.style.marginLeft="6px";
+    delBtn.onclick=async()=>{
+      if(confirm("Delete this spending?")){
+        p.expenses=p.expenses.filter(x=>x.id!==e.id);
+        await saveState();render();
+      }
+    };
+    amtBox.appendChild(delBtn);
+    list.appendChild(div);
+  });
+}
+
+/* ===== CHARTS ===== */
+let trendCh,catCh;
+function last6Months(){
+  const a=[];const d=new Date();
+  for(let i=5;i>=0;i--){
+    const x=new Date(d.getFullYear(),d.getMonth()-i,1);
+    a.push(x.toISOString().slice(0,7));
+  }
+  return a;
+}
+function monthTotalHKD(ym){return monthExpenses(ym).reduce((s,e)=>s+e.amountHKD,0);}
+function catTotals(ym){
+  const t={};
+  monthExpenses(ym).forEach(e=>t[e.cat]=(t[e.cat]||0)+e.amountHKD);
+  return t;
+}
+
+function renderSummary(){
+  const p=project();if(!p)return;
+  const ym=new Date().toISOString().slice(0,7);
+  const total=monthTotalHKD(ym);
+  document.getElementById("statTotal").textContent="HK$"+total.toFixed(0);
+  const ct=catTotals(ym);
+  const top=Object.entries(ct).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById("statTop").textContent=top?top[0].toUpperCase():"—";
+  const rec=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym))
+    .reduce((s,e)=>s+e.amountHKD,0);
+  document.getElementById("statRec").textContent="HK$"+rec.toFixed(0);
+
+  const months=last6Months();
+  const data=months.map(monthTotalHKD);
+  if(trendCh)trendCh.destroy();
+  trendCh=new Chart(document.getElementById("trendChart"),{
+    type:"line",
+    data:{labels:months.map(m=>m.slice(2)),datasets:[{data,borderColor:"#4aa3ff",
+      backgroundColor:"rgba(74,163,255,.15)",fill:true,tension:.3,pointBackgroundColor:"#fff"}]},
+    options:{plugins:{legend:{display:false}},scales:{
+      x:{ticks:{color:"#8b93a7",font:{family:"'Press Start 2P'",size:6}},grid:{color:"#2a3242"}},
+      y:{ticks:{color:"#8b93a7",font:{family:"'Press Start 2P'",size:6}},grid:{color:"#2a3242"}}}}
+  });
+
+  const ce=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
+  if(catCh)catCh.destroy();
+  const palette=["#4aa3ff","#2f6fd0","#8b93a7","#f4f6fb","#565f73","#1a2740","#6db3ff","#3d4a63"];
+  catCh=new Chart(document.getElementById("catChart"),{
+    type:"bar",
+    data:{labels:ce.map(x=>x[0]),datasets:[{data:ce.map(x=>x[1]),
+      backgroundColor:ce.map((_,i)=>palette[i%palette.length])}]},
+    options:{plugins:{legend:{display:false}},scales:{
+      x:{ticks:{color:"#8b93a7",font:{family:"'Press Start 2P'",size:6}},grid:{color:"#2a3242"}},
+      y:{ticks:{color:"#8b93a7",font:{family:"'Press Start 2P'",size:6}},grid:{color:"#2a3242"}}}}
+  });
+
+  renderBalances(ym);
+}
+
+/* ===== BALANCES ===== */
+function renderBalances(ym){
+  const p=project();if(!p)return;
+  const bal={};p.people.forEach(n=>bal[n]=0);
+  monthExpenses(ym).forEach(e=>{
+    bal[e.payer]+=e.amountHKD;
+    Object.entries(e.split).forEach(([n,v])=>{if(bal[n]!==undefined)bal[n]-=v*e.rateToHKD;});
+  });
+  const box=document.getElementById("balanceList");box.innerHTML="";
+  const debt=[],cred=[];
+  Object.entries(bal).forEach(([n,v])=>{
+    if(v<-0.5)debt.push([n,-v]);else if(v>0.5)cred.push([n,v]);
+  });
+  if(!debt.length&&!cred.length){box.innerHTML='<div class="empty">ALL SETTLED ✓</div>';return;}
+  debt.sort((a,b)=>b[1]-a[1]);cred.sort((a,b)=>b[1]-a[1]);
+  let i=0,j=0;
+  while(i<debt.length&&j<cred.length){
+    const pay=Math.min(debt[i][1],cred[j][1]);
+    const d=document.createElement("div");d.className="item";
+    d.innerHTML='<div><span style="color:var(--danger)">'+debt[i][0]+'</span> → <span style="color:var(--blue)">'+cred[j][0]+'</span></div><div class="amt">HK$'+pay.toFixed(2)+'</div>';
+    box.appendChild(d);
+    debt[i][1]-=pay;cred[j][1]-=pay;
+    if(debt[i][1]<0.5)i++;if(cred[j][1]<0.5)j++;
+  }
+}
+
+/* ===== AI ADVISOR ===== */
+function renderAI(){
+  const box=document.getElementById("aiBox");const p=project();
+  if(!p){box.innerHTML='<div class="advice">Create a project to unlock insights.</div>';return;}
+  const months=last6Months();const totals=months.map(monthTotalHKD);
+  const cur=totals[5],prev=totals[4];
+  const ym=months[5];const ct=catTotals(ym);
+  const sorted=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
+  const avg=totals.slice(0,5).reduce((a,b)=>a+b,0)/5||0;
+
+  let html='<div class="head">▸ TREND ANALYSIS · '+p.name+'</div>';
+  if(cur===0){box.innerHTML=html+'<div class="advice">No data yet this month. Start logging to unlock insights.</div>';return;}
+
+  const diff=prev?((cur-prev)/prev*100):0;
+  html+='<div>This month: <b style="color:var(--white)">HK$'+cur.toFixed(0)+'</b></div>';
+  html+='<div>6-mo average: HK$'+avg.toFixed(0)+'</div>';
+  if(prev)html+='<div>'+(diff>=0?"↑ up":"↓ down")+' '+Math.abs(diff).toFixed(0)+'% vs last month</div>';
+
+  html+='<div class="head" style="margin-top:14px">▸ WHERE TO CUT</div>';
+  const advice=[];
+  if(diff>15)advice.push("Spending jumped "+diff.toFixed(0)+"%. Review the top category before month-end.");
+  const wants=["entertainment","clothes","music","snacks & drinks","beauty"];
+  sorted.slice(0,3).forEach(([c,v])=>{
+    const pct=(v/cur*100).toFixed(0);
+    if(wants.includes(c))
+      advice.push(c.toUpperCase()+" is "+pct+"% of spend — discretionary. Trimming 20% saves ~HK$"+(v*0.2).toFixed(0)+"/mo.");
+    else
+      advice.push(c.toUpperCase()+" leads at "+pct+"% (HK$"+v.toFixed(0)+"). Seek cheaper alternatives or bulk deals.");
+  });
+  const rec=p.expenses.filter(e=>e.freq==="monthly"&&activeInMonth(e,ym));
+  if(rec.length)advice.push("You have "+rec.length+" recurring charge(s) totaling HK$"+rec.reduce((s,e)=>s+e.amountHKD,0).toFixed(0)+"/mo. Audit for unused subscriptions.");
+  if((ct["taxi/uber"]||0)>(ct["public transport"]||0)&&ct["taxi/uber"])
+    advice.push("Taxi/Uber exceeds public transport. Shifting half to transit saves ~HK$"+((ct["taxi/uber"])*0.4).toFixed(0)+"/mo.");
+  if(!advice.length)advice.push("Spending looks balanced. Consider moving the surplus into INVESTMENT.");
+  advice.forEach(a=>html+='<div class="advice">▸ '+a+'</div>');
+  box.innerHTML=html;
+}
+
+/* ===== SETTLEMENT BANNER ===== */
+function checkSettlement(){
+  const today=new Date();const ym=today.toISOString().slice(0,7);
+  const banner=document.getElementById("settleBanner");
+  const p=project();
+  if(p&&today.getDate()===1&&STATE.dismissedSettle!==ym){
+    const prev=new Date(today.getFullYear(),today.getMonth()-1,1).toISOString().slice(0,7);
+    document.getElementById("settleText").textContent=
+      "It's the 1st — time to settle "+prev+' for "'+p.name+'". Check who owes whom.';
+    banner.classList.remove("hidden");
+  }else{
+    banner.classList.add("hidden");
+  }
+}
+
+/* ===== PROJECT MODAL ===== */
+let editingProj=null;
+let modalPeople=[];
+
+function fillCurrencies(){
+  const s=document.getElementById("pCurrency");s.innerHTML="";
+  CURRENCIES.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;s.appendChild(o);});
+}
+function renderPeople(people){
+  const box=document.getElementById("peopleList");box.innerHTML="";
+  people.forEach((n,i)=>{
+    const d=document.createElement("div");d.className="person-tag";
+    const inp=document.createElement("input");inp.value=n;inp.style.flex="1";inp.style.border="none";
+    inp.oninput=e=>people[i]=e.target.value;
+    d.appendChild(inp);
+    if(people.length>1){
+      const b=document.createElement("button");b.className="btn danger sm";b.textContent="✕";
+      b.onclick=()=>{people.splice(i,1);renderPeople(people);};
+      d.appendChild(b);
+    }
+    box.appendChild(d);
+  });
+}
+function openProjModal(edit){
+  editingProj=edit;fillCurrencies();
+  document.getElementById("projModal").classList.remove("hidden");
+  document.getElementById("delProjBtn").classList.toggle("hidden",!edit);
+  if(edit){
+    const p=project();
+    document.getElementById("projModalTitle").textContent="EDIT PROJECT";
+    document.getElementById("pName").value=p.name;
+    document.getElementById("pCurrency").value=p.currency;
+    modalPeople=[...p.people];
+  }else{
+    document.getElementById("projModalTitle").textContent="NEW PROJECT";
+    document.getElementById("pName").value="";
+    document.getElementById("pCurrency").value="HKD";
+    modalPeople=["Me"];
+  }
+  renderPeople(modalPeople);
+}
+async function saveProj(){
+  const name=document.getElementById("pName").value.trim();
+  if(!name){alert("Enter a project name");return;}
+  const people=modalPeople.map(n=>n.trim()).filter(Boolean);
+  if(people.length<1||people.length>4){alert("1 to 4 people only");return;}
+  if(new Set(people).size!==people.length){alert("People names must be unique");return;}
+  const currency=document.getElementById("pCurrency").value;
+  if(editingProj){
+    const p=project();p.name=name;p.currency=currency;p.people=people;sharers=[...people];
+  }else{
+    const np={id:Date.now(),name,currency,people,expenses:[]};
+    STATE.projects.push(np);STATE.currentId=np.id;sharers=[...people];
+  }
+  await saveState();
+  document.getElementById("projModal").classList.add("hidden");
+  render();
+}
+
+/* ===== PROJECT SELECT / TABS ===== */
+function renderProjSelect(){
+  const s=document.getElementById("projSelect");s.innerHTML="";
+  STATE.projects.forEach(p=>{
+    const o=document.createElement("option");o.value=p.id;
+    o.textContent=p.name+" ["+p.currency+"]";
+    if(p.id===STATE.currentId)o.selected=true;
+    s.appendChild(o);
+  });
+}
+function switchTab(t){
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));
+  ["add","list","summary","ai"].forEach(x=>
+    document.getElementById("tab-"+x).classList.toggle("hidden",x!==t));
+  if(t==="list")renderList();
+  if(t==="summary")renderSummary();
+  if(t==="ai")renderAI();
+}
+
+/* ===== MASTER RENDER ===== */
+function render(){
+  const p=project();if(!p)return;
+  document.getElementById("curLabel").textContent=p.currency;
+  renderProjSelect();buildCats();buildPayer();buildShareBtns();buildSplit();
+  if(!document.getElementById("dateIn").value)
+    document.getElementById("dateIn").value=new Date().toISOString().slice(0,10);
+  if(!document.getElementById("monthFilter").value)
+    document.getElementById("monthFilter").value=new Date().toISOString().slice(0,7);
+  const active=document.querySelector(".tab.active").dataset.tab;
+  if(active==="list")renderList();
+  if(active==="summary")renderSummary();
+  if(active==="ai")renderAI();
+  checkSettlement();
+}
+
+/* ===== WIRE EVENTS ===== */
+function wire(){
+  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+  document.getElementById("saveExpBtn").onclick=saveExpense;
+  document.getElementById("cancelEditBtn").onclick=()=>{resetAddForm();buildCats();buildShareBtns();buildSplit();};
+  document.getElementById("freqIn").onchange=e=>
+    document.getElementById("expiryField").classList.toggle("hidden",e.target.value!=="monthly");
+  document.getElementById("splitModeIn").onchange=buildSplit;
+  document.getElementById("monthFilter").onchange=renderList;
+  document.getElementById("thisMonthBtn").onclick=()=>{
+    document.getElementById("monthFilter").value=new Date().toISOString().slice(0,7);renderList();};
+  document.getElementById("projSelect").onchange=async e=>{
+    STATE.currentId=+e.target.value;sharers=[];
+    resetAddForm();await saveState();render();};
+  document.getElementById("newProjBtn").onclick=()=>openProjModal(false);
+  document.getElementById("editProjBtn").onclick=()=>openProjModal(true);
+  document.getElementById("closeProjBtn").onclick=()=>
+    document.getElementById("projModal").classList.add("hidden");
+  document.getElementById("saveProjBtn").onclick=saveProj;
+  document.getElementById("addPersonBtn").onclick=()=>{
+    if(modalPeople.length>=4){alert("Max 4 people");return;}
+    modalPeople.push("Person "+(modalPeople.length+1));renderPeople(modalPeople);};
+  document.getElementById("delProjBtn").onclick=async()=>{
+    if(confirm("Delete this project and all its data?")){
+      STATE.projects=STATE.projects.filter(p=>p.id!==STATE.currentId);
+      STATE.currentId=STATE.projects[0]?.id||null;
+      sharers=[];
+      await saveState();
+      document.getElementById("projModal").classList.add("hidden");
+      if(!STATE.currentId){openProjModal(false);}else{render();}
+    }
+  };
+  document.getElementById("dismissSettleBtn").onclick=async()=>{
+    STATE.dismissedSettle=new Date().toISOString().slice(0,7);
+    await saveState();
+    document.getElementById("settleBanner").classList.add("hidden");
+  };
+  document.getElementById("doSettleBtn").onclick=()=>{
+    switchTab("summary");
+    document.getElementById("settleBanner").classList.add("hidden");
+  };
+}
+
+/* ===== BOOT ===== */
+(async function(){
+  await IDB.open();
+  const saved=await IDB.get("state");
+  if(saved&&saved.projects&&saved.projects.length){
+    STATE=saved;
+    if(!STATE.currentId)STATE.currentId=STATE.projects[0].id;
+  }else{
+    const firstProj={id:Date.now(),name:"PER SE",currency:"HKD",people:["Me"],expenses:[]};
+    STATE={projects:[firstProj],currentId:firstProj.id,dismissedSettle:null};
+    await saveState();
+  }
+  wire();
+  render();
+  if(!project())openProjModal(false);
+})();
+</script>
+</body>
+</html>
